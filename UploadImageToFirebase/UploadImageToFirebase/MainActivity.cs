@@ -9,11 +9,14 @@ using Android.Graphics;
 using Android.Provider;
 using Java.IO;
 using Firebase.Storage;
+using Firebase;
+using Android.Gms.Tasks;
+using Java.Lang;
 
 namespace UploadImageToFirebase
 {
     [Activity(Label = "UploadImageToFirebase", MainLauncher = true,Theme ="@style/Theme.AppCompat.Light.NoActionBar")]
-    public class MainActivity : AppCompatActivity
+    public class MainActivity : AppCompatActivity,IOnProgressListener,IOnSuccessListener, IOnFailureListener
     {
         private Button buttonChose, buttonUpload;
         private ImageView imageView;
@@ -33,7 +36,9 @@ namespace UploadImageToFirebase
             SetContentView(Resource.Layout.Main);
 
             /// firebase init Storage
-
+            FirebaseApp.InitializeApp(this);
+            storage = FirebaseStorage.Instance;
+            storageReference = storage.GetReferenceFromUrl("gs://imageuploadfirebase-af762.appspot.com");
 
             //init views 
             buttonChose = FindViewById<Button>(Resource.Id.button_chose);
@@ -48,15 +53,27 @@ namespace UploadImageToFirebase
 
             buttonUpload.Click += delegate
             {
-                UploadImageToFirebase();
+                UploadImageToFireBase();
 
             };
 
         }
 
-        private void UploadImageToFirebase()
+        private void UploadImageToFireBase()
         {
+            if (fileNamePath != null)
+            {
+                progressDialog = new ProgressDialog(this);
+                progressDialog.SetTitle("Se incarca ...");
+                progressDialog.Window.SetType(Android.Views.WindowManagerTypes.SystemAlert);
+                progressDialog.Show();
 
+                var image = storageReference.Child("images/"+Guid.NewGuid().ToString());
+                image.PutFile(fileNamePath)
+                    .AddOnProgressListener(this)
+                    .AddOnSuccessListener(this)
+                    .AddOnFailureListener(this);
+            }
         }
 
         private void ChoseImage()
@@ -90,6 +107,27 @@ namespace UploadImageToFirebase
 
         }
 
+        public void OnProgress(Java.Lang.Object snapshot)
+        {
+            var taskSnapShot = (UploadTask.TaskSnapshot)snapshot;
+            double progres = (100.0*taskSnapShot.BytesTransferred/taskSnapShot.TotalByteCount);
+            progressDialog.SetMessage("S-a incarcat "+(int)progres+"%");
+
+        }
+
+        public void OnSuccess(Java.Lang.Object result)
+        {
+            progressDialog.Dismiss();
+            Toast.MakeText(this,"S-a incarcat",ToastLength.Short).Show();
+
+        }
+
+        public void OnFailure(Java.Lang.Exception e)
+        {
+            progressDialog.Dismiss();
+            Toast.MakeText(this, ""+e.Message, ToastLength.Short).Show();
+
+        }
     }
 }
 
